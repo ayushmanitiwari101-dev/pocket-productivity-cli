@@ -151,3 +151,133 @@ if __name__ == "__main__":
         focus_timer(int(sys.argv[2]))
     else:
         console.print("[bold red]Galat command ya argument![/bold red] Sahi syntax check kar.")
+
+
+
+
+
+
+
+
+
+
+
+
+import sqlite3
+import sys
+import time
+from rich.console import Console
+from rich.table import Table
+
+console = Console()
+
+# Database setup
+conn = sqlite3.connect("tasks.db")
+cursor = conn.cursor()
+cursor.execute("""
+    CREATE TABLE IF NOT EXISTS tasks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        status TEXT DEFAULT 'Pending'
+    )
+""")
+conn.commit()
+
+def add_task(title):
+    cursor.execute("INSERT INTO tasks (title) VALUES (?)", (title,))
+    conn.commit()
+    console.print(f"[bold green]Task add ho gaya:[/bold green] {title}")
+
+def list_tasks():
+    cursor.execute("SELECT id, title, status FROM tasks")
+    rows = cursor.fetchall()
+
+    if not rows:
+        console.print("[yellow]Abhi koi task nahi hai.[/yellow]")
+        return
+
+    table = Table(title="Mere Daily Tasks")
+    table.add_column("ID", style="cyan", justify="center")
+    table.add_column("Task", style="white")
+    table.add_column("Status", style="bold")
+
+    for row in rows:
+        task_id, title, status = row
+        status_display = f"[green]{status}[/green]" if status == "Done" else f"[yellow]{status}[/yellow]"
+        table.add_row(str(task_id), title, status_display)
+
+    console.print(table)
+
+def mark_done(task_id):
+    cursor.execute("UPDATE tasks SET status = 'Done' WHERE id = ?", (task_id,))
+    conn.commit()
+    if cursor.rowcount == 0:
+        console.print(f"[bold red]ID {task_id} wala koi task nahi mila.[/bold red]")
+    else:
+        console.print(f"[bold green]Task #{task_id} Done mark ho gaya![/bold green]")
+
+def delete_task(task_id):
+    cursor.execute("DELETE FROM tasks WHERE id = ?", (task_id,))
+    conn.commit()
+    if cursor.rowcount == 0:
+        console.print(f"[bold red]ID {task_id} wala koi task nahi mila.[/bold red]")
+    else:
+        console.print(f"[bold yellow]Task #{task_id} delete ho gaya.[/bold yellow]")
+
+def show_stats():
+    cursor.execute("SELECT COUNT(*) FROM tasks")
+    total = cursor.fetchone()[0]
+
+    cursor.execute("SELECT COUNT(*) FROM tasks WHERE status = 'Done'")
+    done_count = cursor.fetchone()[0]
+
+    pending_count = total - done_count
+    completion_pct = (done_count / total * 100) if total > 0 else 0
+
+    table = Table(title="Task Progress Stats")
+    table.add_column("Metric", style="cyan")
+    table.add_column("Value", style="bold white", justify="right")
+
+    table.add_row("Total Tasks", str(total))
+    table.add_row("Completed (Done)", f"[green]{done_count}[/green]")
+    table.add_row("Pending", f"[yellow]{pending_count}[/yellow]")
+    table.add_row("Completion", f"[bold cyan]{completion_pct:.1f}%[/bold cyan]")
+
+    console.print(table)
+
+def focus_timer(minutes):
+    seconds = minutes * 60
+    console.print(f"[bold cyan]Focus session shuru: {minutes} minute[/bold cyan] (Rokne ke liye CTRL + C dabaa)")
+    try:
+        while seconds > 0:
+            mins, secs = divmod(seconds, 60)
+            console.print(f"\r[bold green]Bacha hua waqt: {mins:02d}:{secs:02d}[/bold green]", end="")
+            time.sleep(1)
+            seconds -= 1
+        console.print("\n[bold green]Shabash! Focus session poora ho gaya![/bold green]")
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Focus timer rok diya gaya.[/yellow]")
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        console.print("[bold red]Use:[/bold red]")
+        console.print("  python main.py add 'Task ka naam'")
+        console.print("  python main.py list")
+        console.print("  python main.py done <ID>")
+        console.print("  python main.py delete <ID>")
+        console.print("  python main.py stats")
+        console.print("  python main.py focus <minutes>")
+    elif sys.argv[1] == "add" and len(sys.argv) > 2:
+        add_task(" ".join(sys.argv[2:]))
+    elif sys.argv[1] == "list":
+        list_tasks()
+    elif sys.argv[1] == "done" and len(sys.argv) > 2 and sys.argv[2].isdigit():
+        mark_done(int(sys.argv[2]))
+    elif sys.argv[1] == "delete" and len(sys.argv) > 2 and sys.argv[2].isdigit():
+        delete_task(int(sys.argv[2]))
+    elif sys.argv[1] == "stats":
+        show_stats()
+    elif sys.argv[1] == "focus" and len(sys.argv) > 2 and sys.argv[2].isdigit():
+        focus_timer(int(sys.argv[2]))
+    else:
+        console.print("[bold red]Galat command ya argument![/bold red] Sahi syntax check kar.")
